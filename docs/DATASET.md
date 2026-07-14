@@ -21,12 +21,17 @@ Phase 2 산출물. PRD 6장(라벨링 방식)/7장(데이터셋 전략)/8장(초
 
 ### 2.1 소스별 요약
 
-| 데이터셋 | 우선순위 | 다운로드 방식 | 자동화 | 라이선스 |
-|---|---|---|---|---|
-| COCO (person) | 상 (기반) | 공식 서버 직접 다운로드 | ✅ 스크립트로 자동화 가능 | 어노테이션 CC BY 4.0, 이미지는 Flickr 원저작자 권리(비상업 사용 문제없음) |
-| CrowdHuman | 상 (occlusion 학습 핵심) | Google Drive/Baidu Drive | ⚠️ 브라우저 수동 다운로드 필요 | 비상업 연구·교육 목적 한정, **이미지 재배포 금지** |
-| WiderPerson | 상 (부분가림 개념 최유사) | Google Drive/Baidu Drive | ⚠️ 브라우저 수동 다운로드 필요 | 비영리 학술 목적(non-commercial scientific use) 한정 |
-| OCHuman | 중~상 (극한 occlusion 검증) | Tsinghua 신청 폼 제출 | ⚠️ 폼 제출 필요, GitHub는 API 코드만 제공 | MIT (API 코드), 데이터 자체는 신청 시 조건 확인 필요 |
+| 데이터셋 | 우선순위 | 다운로드 방식 | 자동화 | 라이선스 | 확보 현황 |
+|---|---|---|---|---|---|
+| COCO (person) | 상 (기반) | 공식 서버 직접 다운로드 | ✅ 스크립트로 자동화 가능 | 어노테이션 CC BY 4.0, 이미지는 Flickr 원저작자 권리(비상업 사용 문제없음) | ✅ **완료** (66,808장, 2026-07-14) |
+| CrowdHuman | 상 (occlusion 학습 핵심) | Google Drive/Baidu Drive | ⚠️ 브라우저 수동 다운로드 필요 | 비상업 연구·교육 목적 한정, **이미지 재배포 금지** | ⬜ 미확보 |
+| WiderPerson | 상 (부분가림 개념 최유사) | Google Drive/Baidu Drive | ⚠️ 브라우저 수동 다운로드 필요 | 비영리 학술 목적(non-commercial scientific use) 한정 | ⬜ 미확보 |
+| OCHuman | 중~상 (극한 occlusion 검증) | Tsinghua 신청 폼 제출 | ⚠️ 폼 제출 필요, GitHub는 API 코드만 제공 | MIT (API 코드), 데이터 자체는 신청 시 조건 확인 필요 | ⬜ 미확보 |
+
+**COCO 확보 내역**: instances_train2017.json + instances_val2017.json에서 person 카테고리가
+포함된 이미지 66,808장(val2017 2,693 + train2017 64,115)을 개별 URL로 다운로드
+(`model/scripts/download_coco_person_subset.py`), `convert_to_yolo.py coco`로 YOLO 라벨
+변환까지 완료. `model/data/processed/coco/`에 이미지 66,808장 + 라벨 66,808개 (빈 라벨 0개).
 
 > **재배포 금지 주의**: CrowdHuman/WiderPerson은 원본 이미지를 그대로 팀 저장소나 발표 자료에
 > 포함해 공개하면 안 된다. 로컬 학습용으로만 사용하고, `.gitignore`로 `model/data/raw/`,
@@ -34,17 +39,23 @@ Phase 2 산출물. PRD 6장(라벨링 방식)/7장(데이터셋 전략)/8장(초
 
 ### 2.2 다운로드 절차
 
-**COCO** (자동화됨):
+**COCO** (자동화 완료, ✅ 확보됨):
 ```bash
-# 어노테이션
+# 1. 어노테이션 다운로드 및 압축 해제 (instances_train2017.json, instances_val2017.json을
+#    model/data/raw/coco/annotations/ 에 배치)
 curl -LO http://images.cocodataset.org/annotations/annotations_trainval2017.zip
-# person 카테고리만 필요하므로, JSON에서 category_id=1(person)이 포함된 이미지 id만 골라
-# 개별 이미지를 http://images.cocodataset.org/train2017/{file_name} 패턴으로 다운로드
-# (전체 train2017.zip(18GB)을 통째로 받을 필요 없음)
+
+# 2. person 카테고리가 포함된 이미지만 개별 URL로 다운로드 (전체 train2017.zip(18GB)을
+#    통째로 받을 필요 없음 — http://images.cocodataset.org/{split}/{file_name} 패턴)
+python model/scripts/download_coco_person_subset.py --out model/data/raw/coco/images --workers 32
 ```
-개별 이미지 필터링 다운로드 스크립트는 `model/scripts/convert_to_yolo.py coco` 실행 전
-`model/data/raw/coco/images/`에 이미지가 준비돼 있다고 가정한다 (annotations 폴더의 JSON은
-COCO API로 먼저 내려받아 `model/data/raw/coco/annotations/`에 둔다).
+- 병렬 다운로드 워커 수는 32가 최적점으로 실측됨 (64는 서버 쪽에서 오히려 처리량이
+  21장/초 → 4장/초로 저하 — 과도한 동시 연결이 역효과를 낸 것으로 추정)
+- 개별 이미지 다운로드에는 20초 타임아웃을 명시적으로 설정 (미설정 시 일부 죽은 연결에서
+  무한 대기하는 사례 발생 확인)
+- 실제로 val2017 2,693장 + train2017 64,115장 = **66,808장 전량 다운로드 완료**
+  (2026-07-14, HTTP 503 등 일시적 오류로 실패한 7장은 재실행 시 자동 재시도되어 회수)
+- 이후 `model/data/processed/coco/`로 YOLO 변환 완료 (이미지 66,808장, 라벨 66,808개, 빈 라벨 0개)
 
 **CrowdHuman** (수동):
 1. https://www.crowdhuman.org/download.html 방문
@@ -209,11 +220,13 @@ model/data/
 
 ## 7. 남은 과제
 
-- COCO 개별 이미지 필터링 다운로드 스크립트 작성 (annotation JSON에서 person 포함 이미지 id
-  추출 → 개별 URL 다운로드) — 실제 대용량 다운로드는 이번 단계에서 실행하지 않음
-- CrowdHuman/WiderPerson 실제 다운로드 및 배치 (팀 계정으로 Google Drive 접근)
+- ~~COCO 개별 이미지 필터링 다운로드 스크립트 작성~~ → **완료** (66,808장 다운로드 및 YOLO 변환,
+  2026-07-14)
+- CrowdHuman/WiderPerson 실제 다운로드 및 배치 (팀 계정으로 Google Drive 접근 — 브라우저 수동
+  다운로드 필요, 자동화 불가)
 - OCHuman 신청 폼 제출 및 bbox 성격(amodal 여부) 원 논문 재확인
 - 자체 촬영 일정 협의 (팀원 C, D) — SHOOTING_GUIDE.md 기준으로 진행
 - 합성 텍스처를 실제 촬영 잔해 사진으로 교체하는 실험 (자체 촬영 진행 후)
-- 실제 데이터 확보 후 `convert_to_yolo.py` → `occlusion_augment.py` → `split_dataset.py`
-  전체 파이프라인을 수만 장 규모로 실행, PRD 8장 스모크테스트 결과 재검증
+- COCO 66,808장에 `occlusion_augment.py` 적용해 합성 데이터 생성 (다음 단계 후보)
+- CrowdHuman/WiderPerson 확보 후 `convert_to_yolo.py` → `occlusion_augment.py` →
+  `split_dataset.py` 전체 파이프라인을 수만 장 규모로 실행, PRD 8장 스모크테스트 결과 재검증
