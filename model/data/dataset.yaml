@@ -1,0 +1,10 @@
+# YOLO11 학습용 데이터 설정
+# model/scripts/split_dataset.py 실행 후 생성되는 splits/{train,val,test}.txt 를 참조한다.
+# 단일 클래스: 잔해 매몰/부분 가림 여부와 무관하게 "person" 하나만 탐지 (full-extent bbox, PRD 6장)
+
+train: splits/train.txt
+val: splits/val.txt
+test: splits/test.txt
+
+nc: 1
+names: ["person"]

@@ -10,16 +10,27 @@ env/
 model/weights/*.pt
 model/weights/*.onnx
 model/weights/*.engine
-model/data/raw/*
-model/data/processed/*
-model/data/synthetic/*
-!model/data/raw/.gitkeep
-!model/data/processed/.gitkeep
-!model/data/synthetic/.gitkeep
 *.pt
 *.onnx
 *.engine
 runs/
+
+# Dataset artifacts (large, downloaded/generated - see docs/DATASET.md)
+model/data/raw/**
+model/data/processed/**
+model/data/synthetic/**
+model/data/own_capture/**
+model/data/splits/**
+!model/data/raw/**/
+!model/data/processed/**/
+!model/data/synthetic/**/
+!model/data/own_capture/**/
+!model/data/splits/**/
+!model/data/raw/**/.gitkeep
+!model/data/processed/**/.gitkeep
+!model/data/synthetic/**/.gitkeep
+!model/data/own_capture/**/.gitkeep
+!model/data/splits/**/.gitkeep
 
 # Node (dashboard)
 node_modules/
