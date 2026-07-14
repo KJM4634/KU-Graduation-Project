@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Model artifacts (large, managed separately)
+model/weights/*.pt
+model/weights/*.onnx
+model/weights/*.engine
+model/data/raw/*
+model/data/processed/*
+model/data/synthetic/*
+!model/data/raw/.gitkeep
+!model/data/processed/.gitkeep
+!model/data/synthetic/.gitkeep
+*.pt
+*.onnx
+*.engine
+runs/
+
+# Node (dashboard)
+node_modules/
+dist/
+.env
+.env.local
+
+# Server
+*.db
+*.sqlite3
+__pycache__/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
