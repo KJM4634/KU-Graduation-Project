@@ -1,0 +1,26 @@
+# DSAR-Assist Python 환경 (model/ + edge/ 개발용, Windows RTX 3090 학습 PC 기준)
+# 상세 배경: docs/STACK.md 참고
+#
+# torch/torchvision은 PyTorch CUDA 13.0 인덱스에서, 나머지는 PyPI에서 설치.
+--index-url https://download.pytorch.org/whl/cu130
+--extra-index-url https://pypi.org/simple
+
+# --- 모델 학습 (model/) ---
+torch==2.13.0+cu130
+torchvision==0.28.0+cu130
+ultralytics==8.4.95
+opencv-python==5.0.0.93
+numpy==2.4.4
+pillow==12.2.0
+matplotlib==3.11.0
+pyyaml==6.0.3
+
+# --- 엣지 SW: GPS (edge/gps), PC에서 개발/테스트 가능 ---
+pyserial==3.5
+pynmea2==1.19.0
+
+# --- 엣지 SW: LCD 알림 UI (edge/notify), PC에서 개발/테스트 가능 ---
+PyQt6==6.11.0
+
+# --- Jetson 전용 (Windows PC에는 설치 불가, 참고용 주석) ---
+# Jetson.GPIO          # 부저(GPIO) 제어, Jetson Orin Nano 실기에서만 설치

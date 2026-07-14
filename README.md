@@ -16,8 +16,15 @@
 | `docs/` | PRD, 스택 결정, 기타 문서 |
 
 ## 개발 환경
-- 학습 PC: Windows, RTX 3090 (CUDA) — 상세는 `docs/STACK.md` 참고
+- 학습 PC: Windows, RTX 3090 (CUDA) — 상세는 `docs/STACK.md` 참고 (PRD상 RTX 5080 가정과 실제 장착 GPU가 달라 RTX 3090 기준으로 확정)
 - 배포 타겟: Jetson Orin Nano (ONNX → TensorRT FP16)
+
+## 개발 환경 세팅
+```
+py -3.12 -m venv .venv        # 반드시 python.org 표준 배포판 기준 (Anaconda venv 사용 시 DLL 충돌 발생, docs/STACK.md 참고)
+.venv\Scripts\pip install --upgrade pip
+.venv\Scripts\pip install -r requirements.txt
+```
 
 ## 팀 구성
 | 역할 | 담당 |
