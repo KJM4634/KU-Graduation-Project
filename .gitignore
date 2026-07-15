@@ -15,6 +15,11 @@ model/weights/*.engine
 *.engine
 runs/
 
+# Training run artifacts (bulky, regenerable by rerunning train_yolo.py) -
+# but keep small evaluation outputs (baseline JSON, report charts/JSON)
+model/experiments/train/
+model/experiments/calib/
+
 # Dataset artifacts (large, downloaded/generated - see docs/DATASET.md)
 model/data/raw/**
 model/data/processed/**
