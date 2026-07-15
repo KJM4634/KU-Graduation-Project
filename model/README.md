@@ -10,7 +10,8 @@ YOLO11 기반 잔해 매몰 인체 탐지 모델 학습. 데이터셋 구축 계
   DATASET.md 4장 참고)
   - `raw/` — 정적 사진 촬영 원본, `labeled/` — 라벨링 완료본
   - `raw_videos/`, `extracted_frames/`, `frames_standing/`, `frames_lying/`,
-    `subsampled_frames/` — 연속 영상 촬영분(고정 카메라) 처리 결과 (DATASET.md 4.1절)
+    `subsampled_frames/`, `subsampled_frames_flat/` — 연속 영상 촬영분(고정 카메라)
+    처리 결과 (DATASET.md 4.1절, 라벨링은 [ROBOFLOW_GUIDE.md](../docs/ROBOFLOW_GUIDE.md))
 - `data/splits/` — train/val/test 목록 (재생성 가능, gitignore 처리)
 - `data/dataset.yaml` — YOLO 학습 데이터 설정 (git 추적)
 - `scripts/convert_to_yolo.py` — 소스별 원본 포맷 → YOLO 라벨 변환
