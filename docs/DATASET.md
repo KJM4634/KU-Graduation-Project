@@ -278,6 +278,54 @@ python model/scripts/occlusion_augment.py \
 - 라벨링(전체범위 bbox) 완료본은 `model/data/own_capture/labeled/{images,labels}/`에 배치
   (라벨링 도구는 팀 상황에 맞게 선정 — 예: LabelImg, CVAT, Roboflow 등 YOLO 포맷 export 가능한 도구)
 
+### 4.1 연속 영상 촬영분 (고정 카메라, 눕기→덮이기→일어나기)
+
+SHOOTING_GUIDE.md의 정적 사진 촬영과 별개로, 팀원이 **고정된 한 각도**에서 사람이
+눕고 → 이불로 점진적으로 덮이고 → 다시 일어나는 과정을 연속으로 촬영한 영상 8개를
+`model/data/own_capture/raw_videos/`에 추가로 확보했다 (2026-07-15).
+
+**처리 파이프라인**:
+1. `model/scripts/extract_frames.py` — 원본 fps(30)와 무관하게 8fps로 촘촘하게 프레임 추출
+   → `model/data/own_capture/extracted_frames/{영상명}/frame_XXXXXX.jpg`
+2. `model/scripts/process_own_capture_video.py` — YOLO11로 검출한 person bbox의 종횡비
+   (세로로 긴 bbox=서있음/걷는 중, 가로로 긴 bbox=누움)를 시간축 median filter로
+   스무딩해 분류
+   - "완전히 서있거나 걷는 중"(기절/의식불명 시나리오와 무관, 낮은 우선순위) →
+     `model/data/own_capture/frames_standing/`으로 분리, 학습 라벨링 대상에서 제외
+   - "누워있는(가려짐 진행 중)" 프레임 → `model/data/own_capture/frames_lying/`에 보관,
+     이후 수동 라벨링 대상
+
+**결과 (2026-07-15)**:
+| 항목 | 수량 |
+|---|---|
+| 원본 영상 | 8개 (총 약 7분 17초, 1080x1920, 30fps) |
+| 추출 프레임(8fps) | 3,497장 |
+| 서있음/걷는 중 (제외) | 743장 |
+| **누움 — 라벨링 대상** | **2,754장** |
+
+**occlusion 비율 자동 측정 시도 및 폐기**: 처음에는 프레임별 occlusion 비율(가려진 정도)까지
+자동으로 추정하려 했다. 두 가지 방법을 시도했다:
+- YOLO bbox 크기/종횡비를 occlusion 비율의 proxy로 사용 → 실패. 가려질수록 detection
+  confidence는 떨어지지만, bbox 자체는 "사람처럼 보이는 덩어리" 전체를 계속 감싸는
+  경향이 있어 크기가 가려짐 비율에 비례해 줄어들지 않았음
+- 기준(가려짐 0%) 프레임과의 픽셀 단위 색차(Lab 색공간) 비교 → 실패. 영상 압축
+  아티팩트와 사소한 조명/노출 변화로 인한 "노이즈"가, 실제 이불이 덮이면서 생기는
+  색 변화 "신호"와 비슷하거나 더 큰 수준이어서 신뢰할 수 없는 수치가 나옴 (정적인
+  두 프레임을 비교해도 노이즈만으로 최대 60%대의 "가짜 occlusion"이 잡히는 경우 발생)
+
+이 두 시도 모두 **폐기**했다. 자체 촬영 데이터(2,754장)는 정밀한 occlusion 비율 수치가
+굳이 필요하지 않으므로, **사람이 프레임을 직접 보면서 bbox를 그리는 수동 라벨링**으로
+진행한다 (전체범위 full-extent bbox 원칙은 동일하게 적용, PRD 6장).
+
+**규모 판단**: 2,754장은 목표치(500~1,000장)를 훌쩍 넘는 규모이나, **단일 카메라 각도·단일
+장소(침대)·8개 영상**에서만 나온 데이터라 각도/거리/조명 다양성이 전혀 없다는 한계가
+뚜렷하다. 초당 8프레임 추출이라 인접 프레임끼리 시각적으로 거의 동일해 실질적인
+"독립적인" 학습 신호는 프레임 수만큼 크지 않을 가능성이 높다. 따라서 이 2,754장은
+**occlusion 진행 과정을 촘촘하게 담은 보조 데이터**로는 매우 유용하지만, SHOOTING_GUIDE.md가
+원래 요구한 "각도/거리/조명 다양성"을 대체할 수는 없다. **권장**: 팀원 C·D에게 최소 2~3개
+각도(정면/측면/위쪽 등)에서 동일한 눕기→덮이기→일어나기 과정을 몇 개(3~5개 영상 정도)만
+더 촬영해 달라고 요청할 것 — 전신이 아니라 각도 다양성만 보강하면 되므로 큰 부담은 아님.
+
 ---
 
 ## 5. Train/Val/Test 분할 (PRD 7.4절)
@@ -324,7 +372,11 @@ model/data/
   synthetic/              # occlusion augmentation 결과 + metadata.csv (gitignore 처리)
     images/ labels/ metadata.csv
   own_capture/            # 자체 촬영 (gitignore 처리)
-    raw/                  # 촬영 원본
+    raw/                  # 정적 사진 촬영 원본 (SHOOTING_GUIDE.md 기준)
+    raw_videos/           # 연속 영상 원본 (4.1절, 고정 카메라 눕기->덮이기->일어나기)
+    extracted_frames/     # raw_videos에서 8fps로 추출한 프레임 (영상별 하위 폴더)
+    frames_standing/      # 서있음/걷는 중 (라벨링 제외 대상)
+    frames_lying/         # 누움(가려짐 진행 중) - 수동 라벨링 대상
     labeled/{images,labels}/  # 라벨링 완료본
   splits/                 # train/val/test 목록 txt (gitignore 처리, 재생성 가능)
   dataset.yaml            # YOLO 학습 설정 (git 추적 — 가벼운 설정 파일)
