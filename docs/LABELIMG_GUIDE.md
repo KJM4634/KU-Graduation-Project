@@ -1,4 +1,13 @@
-# LABELIMG_GUIDE.md — 자체 촬영 프레임 오프라인 라벨링 가이드
+# LABELIMG_GUIDE.md — 자체 촬영 프레임 오프라인 라벨링 가이드 (⚠️ 실패, 사용 중단)
+
+> **상태: 폐기됨 (2026-07-15).** 설치와 실행(및 `save_file`의 `file_path` None 크래시 수정)까지는
+> 성공했으나, **PyQt6/PyQt5 관련 호환성 문제로 이미지 로딩이 계속 실패**해 정상적인 라벨링
+> 진행이 불가능했다. 이후 **웹 기반이지만 브라우저 로컬 처리(서버 업로드 없음)인
+> [makesense.ai](https://www.makesense.ai/)로 전환**했다 — 실제 사용 절차는
+> **[docs/MAKESENSE_GUIDE.md](MAKESENSE_GUIDE.md)** 참고. 이 문서는 시도 기록 및 향후
+> 유사한 문제 재발 방지 참고용으로 남겨둔다.
+
+---
 
 대상: `model/data/own_capture/subsampled_frames/` (또는 `subsampled_frames_flat/`) 282장.
 Roboflow(클라우드 업로드) 대신 **완전히 로컬에서 동작하는 LabelImg**로 라벨링한다.
