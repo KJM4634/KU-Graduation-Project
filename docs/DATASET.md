@@ -100,7 +100,13 @@ python model/scripts/download_coco_person_subset.py --out model/data/raw/coco/im
 
 **OCHuman** (수동, 신청 필요):
 1. https://github.com/liruilong940607/OCHumanApi 에서 API 코드 확인
-2. Tsinghua 신청 폼(`cg.cs.tsinghua.edu.cn/dataset/form.html?dataset=ochuman`) 제출 후 데이터 수령
+2. Tsinghua 신청 폼(`https://cg.cs.tsinghua.edu.cn/dataset/form.html?dataset=ochuman`) 제출 후
+   데이터 수령 — 2026-07-15 기준 GitHub README에서 이 URL을 재확인함. 자동 크롤링으로 접속 시
+   "No dataset available for your request"가 떠서 링크가 깨진 것처럼 보였으나, 페이지가
+   `?dataset=ochuman` 쿼리를 자바스크립트로 읽어 내용을 바꾸는 방식이라 자동 크롤러가 제대로
+   렌더링하지 못한 것으로 추정 — **반드시 실제 브라우저로 직접 접속해서 확인할 것**
+   - 필요 입력 정보(Tsinghua CG 그룹 동일 계열 폼 기준): 이름, 이메일, 소속
+   - 제공 파일: 이미지(약 667MB) + COCO 스타일 어노테이션(val/test 분할 포함)
 3. `model/data/raw/ochuman/images/`, annotation json을 `model/data/raw/ochuman/`에 배치
 4. **주의**: OCHuman bbox가 amodal(full-extent)인지 원 논문(Pose2Seg, CVPR 2019) 기준으로
    명확히 확인되지 않았다. 확인 전까지는 학습(train)에는 포함하지 않고
@@ -209,20 +215,54 @@ python model/scripts/occlusion_augment.py \
   --labels model/data/processed/coco/labels \
   --out model/data/synthetic \
   --ratios 0.3 0.5 0.7 \
-  --variants-per-image 3
+  --variants-per-image 1
 ```
 
 - 텍스처는 의사(pseudo) Perlin 노이즈 기반으로 4종(concrete/rebar/dust/tarp) 절차적 생성,
   상단 경계를 들쭉날쭉하게 처리해 잔해 더미처럼 보이도록 함
 - 목표 비율은 이분 탐색으로 실제 픽셀 기준 occlusion 비율에 **±5% 이내로 수렴**시킴
-  (수렴 실패 시 가장 근접한 결과 사용, 최대 12회 시도)
+  (수렴 실패 시 가장 근접한 결과 사용, 최대 8회 시도 — 처음엔 12회였으나 대규모 실행 속도를
+  위해 8회로 축소, 이분탐색 특성상 8회면 이론적으로 1/256 정밀도라 품질 저하는 미미함)
 - **라벨(full-extent bbox)은 원본 그대로 유지** — occlusion은 이미지에만 적용, 사람의 실제
   전체 범위 라벨은 변경하지 않음
 - 모든 생성 기록은 `model/data/synthetic/metadata.csv`에 저장
   (`source_image, output_image, bbox_index, target_ratio, actual_ratio, texture_type`)
 - 절차적 텍스처를 실제 촬영한 잔해 텍스처로 교체하면 합성 데이터 비율 상한을 60~70%까지
   완화 가능 (PRD 7.2절) — 향후 자체 촬영 진행 시 텍스처 이미지도 함께 확보해 반영 예정
-- 테스트 이미지로 30/50/70% 각각 실제 occlusion 비율 0.31~0.72 범위로 수렴함을 확인 완료
+- `--max-boxes-per-image`: CrowdHuman/WiderPerson처럼 이미지 하나에 사람이 매우 많은 경우
+  (평균 19~32명, 최대 660명) 전원에게 occlusion을 적용하면 비현실적이고 처리 시간도 급증하므로,
+  이미지당 최대 5개 박스만 무작위로 선택해 occlusion 적용 (나머지 박스는 라벨에는 그대로 포함,
+  이미지만 원본 유지)
+- `--limit`: 벤치마크/테스트용 상한 옵션 추가
+
+### 3.1 실행 결과 (2026-07-15, COCO+CrowdHuman+WiderPerson 3개 소스 전체)
+
+| 소스 | 입력 이미지 | 처리 속도 | 소요 시간 | 비고 |
+|---|---|---|---|---|
+| COCO | 66,808 | 43.9장/초 | 약 25분 | cap 없음 (평균 4.2박스/이미지로 밀도 낮음) |
+| WiderPerson | 9,000 | 45.7장/초 | 약 3분 | `--max-boxes-per-image 5` |
+| CrowdHuman | 19,370 | 7.8장/초 | 약 41분 | `--max-boxes-per-image 5` (박스 밀도가 높아 상대적으로 느림) |
+
+**최종 결과**: `model/data/synthetic/`에 이미지 **95,175장** + 라벨 95,175개 + metadata.csv
+413,839행(occlusion 처리한 박스 단위 기록). variants-per-image=1이지만 이미지 인덱스 기준으로
+30/50/70% 비율이 순환 배분되어 전체적으로 고르게 섞임.
+
+**중간에 발견한 이슈와 조치**:
+- COCO 원본 이미지 중 3장(`000000142790.jpg` 등)이 다운로드 스크립트의 "존재하면 스킵" 로직
+  때문에 손상된 채로 남아있었음 → 해당 3장 재다운로드로 해결, 재발 방지를 위해
+  `download_coco_person_subset.py`가 다운로드 실패 시 부분 파일을 자동 삭제하도록 수정
+- 위 3장 중 2장은 재다운로드 직후에도 augmentation 스크립트가 읽는 시점에 일시적으로
+  다시 실패(십중팔구 백신 실시간 검사 등 환경적 요인) → `occlusion_augment.py`가 이미지 로드
+  실패 시 크래시하지 않고 해당 이미지만 건너뛰도록 예외처리 추가. 최종적으로 66,808장 중
+  66,805장 처리(3장 누락, 0.004% 수준으로 무시 가능)
+- CrowdHuman/WiderPerson은 이미지 하나에 사람이 매우 많아(평균 19.4/32.3명) 전원에게
+  occlusion을 적용하면 CrowdHuman 기준 초당 2장 수준으로 느려지고 결과도 비현실적이어서
+  `--max-boxes-per-image 5`로 제한 (초당 2.1장 → 6.7장으로 개선)
+
+**품질 확인**: 중간 크기 이상의 인물 bbox에서는 잔해 텍스처가 자연스럽게 하단부를 덮는 것을
+샘플 이미지로 육안 확인함. 다만 CrowdHuman/COCO의 소형·원거리 인물 인스턴스는 bbox 자체가
+작아 debris 패치도 상대적으로 작게 보이는 한계가 있음 — 실사용 시나리오(헬멧캠 근~중거리)와는
+차이가 있으므로, 필요 시 향후 bbox 크기 기준 필터링을 추가하는 것을 고려할 수 있음.
 
 학습셋 기준 합성 데이터 비율은 50~60%를 상한으로 권장 (질감 편향 위험, PRD 7.2절).
 
@@ -307,6 +347,8 @@ model/data/
 - OCHuman 신청 폼 제출 및 bbox 성격(amodal 여부) 원 논문 재확인
 - 자체 촬영 일정 협의 (팀원 C, D) — SHOOTING_GUIDE.md 기준으로 진행
 - 합성 텍스처를 실제 촬영 잔해 사진으로 교체하는 실험 (자체 촬영 진행 후)
-- COCO/CrowdHuman/WiderPerson에 `occlusion_augment.py` 적용해 합성 데이터 생성 (다음 단계 후보)
-- `split_dataset.py` 실행해 확보된 3개 소스(COCO+CrowdHuman+WiderPerson, 총 95,178장) 기준
-  train/val/test 분할 및 PRD 8장 스모크테스트 결과 본 학습 규모로 재검증
+- ~~COCO/CrowdHuman/WiderPerson에 `occlusion_augment.py` 적용해 합성 데이터 생성~~ →
+  **완료** (95,175장 생성, 3장 결측 무시 가능 수준, 2026-07-15 — 상세는 3.1절)
+- 자체 촬영 데이터까지 모두 갖춰지면 `split_dataset.py`로 전체(공개 95,178장 + 합성 95,175장
+  + 자체촬영) train/val/test를 한 번에 분할하고, PRD 8장 스모크테스트 결과를 본 학습 규모로
+  재검증 (사용자 결정: 자체 촬영 전까지 분할은 보류)

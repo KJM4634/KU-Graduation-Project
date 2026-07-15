@@ -50,6 +50,9 @@ def download_one(split, file_name, out_dir):
             f.write(resp.read())
         return "downloaded"
     except Exception as e:
+        # 다운로드 도중 실패하면 부분적으로 쓰인 파일이 남아, 다음 실행 시 "이미 존재함"으로
+        # 착각해 건너뛰고 손상된 채로 남는 문제가 있었음 (2026-07-15) -> 실패 시 반드시 삭제
+        dst.unlink(missing_ok=True)
         return f"error:{e}"
 
 
