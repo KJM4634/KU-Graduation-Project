@@ -25,7 +25,7 @@ Phase 2 산출물. PRD 6장(라벨링 방식)/7장(데이터셋 전략)/8장(초
 |---|---|---|---|---|---|
 | COCO (person) | 상 (기반) | 공식 서버 직접 다운로드 | ✅ 스크립트로 자동화 가능 | 어노테이션 CC BY 4.0, 이미지는 Flickr 원저작자 권리(비상업 사용 문제없음) | ✅ **완료** (66,808장, 2026-07-14) |
 | CrowdHuman | 상 (occlusion 학습 핵심) | Google Drive/Baidu Drive (또는 Kaggle 미러) | ⚠️ 브라우저 수동 다운로드 필요 | 비상업 연구·교육 목적 한정, **이미지 재배포 금지** | ✅ **완료** (train 15,000 + val 4,370 = 19,370장, 2026-07-15, Kaggle 경로로 확보) |
-| WiderPerson | 상 (부분가림 개념 최유사) | Google Drive/Baidu Drive | ⚠️ 브라우저 수동 다운로드 필요 | 비영리 학술 목적(non-commercial scientific use) 한정 | ⬜ 미확보 |
+| WiderPerson | 상 (부분가림 개념 최유사) | Google Drive/Baidu Drive | ⚠️ 브라우저 수동 다운로드 필요 | 비영리 학술 목적(non-commercial scientific use) 한정 | ✅ **완료** (train 8,000 + val 1,000 = 9,000장, 공식 사이트 경유, 2026-07-15) |
 | OCHuman | 중~상 (극한 occlusion 검증) | Tsinghua 신청 폼 제출 | ⚠️ 폼 제출 필요, GitHub는 API 코드만 제공 | MIT (API 코드), 데이터 자체는 신청 시 조건 확인 필요 | ⬜ 미확보 |
 
 **COCO 확보 내역**: instances_train2017.json + instances_val2017.json에서 person 카테고리가
@@ -75,11 +75,28 @@ python model/scripts/download_coco_person_subset.py --out model/data/raw/coco/im
   103,115 + mask/ignore 24,601) — person당 이미지 밀도(약 23.5명/장)가 공식 CrowdHuman 통계와
   부합해 정상 데이터로 판단
 
-**WiderPerson** (수동):
+**WiderPerson** (수동, ✅ 확보됨):
 1. http://www.cbsr.ia.ac.cn/users/sfzhang/WiderPerson/ 방문 (접속이 원활하지 않을 수 있음 —
-   재시도하거나 논문에 안내된 Google Drive/Baidu Drive(코드 `uq3u`) 링크 이용)
+   재시도하거나 논문에 안내된 Google Drive/Baidu Drive(코드 `uq3u`) 링크 이용). 이번엔 공식
+   사이트 안내에 따라 Google Drive 경유로 정상 확보 (910MB)
 2. 이미지와 `{이미지명}.jpg.txt` 어노테이션을 각각
-   `model/data/raw/widerperson/images/`, `model/data/raw/widerperson/annotations/`에 배치
+   `model/data/raw/widerperson/Images/`, `model/data/raw/widerperson/Annotations/`에 배치
+   (원본 zip 구조 그대로 `Images`/`Annotations`로 대문자 시작 — Windows 탐색기로 `Annotations`
+   폴더만 뒤늦게 복사하다가 "다른 프로그램에서 파일 사용 중" 오류가 나서 PowerShell
+   `robocopy`로 대신 복사해 해결)
+
+**WiderPerson 검증 결과** (2026-07-15):
+- `Images/` 13,382장 = train.txt(8,000) + val.txt(1,000) + test.txt(4,382) 합계와 정확히 일치
+  (`wc -l`은 마지막 줄 개행 누락으로 각각 1씩 적게 표시되었을 뿐, 실제 줄 수는 정확함)
+- `Annotations/` 9,000개 = train+val(8,000+1,000)과 정확히 일치, test 이미지는 원래
+  라벨을 공개하지 않는 정책(원본 데이터셋 자체 정책)이라 정상
+- ID 교차 검증: `Images` ↔ (train+val+test 목록), `Annotations` ↔ (train+val 목록) 모두
+  **불일치 0건**, test 이미지 중 Annotations가 존재하는 경우도 0건
+- Annotation 포맷: 각 파일 첫 줄이 박스 개수(N), 이후 `class_label x1 y1 x2 y2` — 공식
+  포맷과 정확히 일치, 형식 오류 라인 0개
+- 전체 273,475박스 중 class 분포: 1(pedestrians) 178,593 / 2(riders) 1,659 /
+  3(partially-visible persons) 79,934 / 4(ignore regions) 3,649 / 5(crowd) 9,640 —
+  부분가림 클래스(3)가 뚜렷하게 존재함을 확인
 
 **OCHuman** (수동, 신청 필요):
 1. https://github.com/liruilong940607/OCHumanApi 에서 API 코드 확인
@@ -109,10 +126,10 @@ python model/scripts/convert_to_yolo.py crowdhuman \
   --images model/data/raw/crowdhuman/Images_val \
   --out model/data/processed/crowdhuman
 
-# WiderPerson
+# WiderPerson (원본 zip 구조 그대로 Images/Annotations 대문자 시작)
 python model/scripts/convert_to_yolo.py widerperson \
-  --annotations model/data/raw/widerperson/annotations \
-  --images model/data/raw/widerperson/images \
+  --annotations model/data/raw/widerperson/Annotations \
+  --images model/data/raw/widerperson/Images \
   --out model/data/processed/widerperson
 
 # OCHuman
@@ -136,6 +153,16 @@ python model/scripts/convert_to_yolo.py ochuman \
 **CrowdHuman 변환 결과** (2026-07-15): `model/data/processed/crowdhuman/`에 이미지
 19,370장(train 15,000 + val 4,370) + 라벨 19,370개, 빈 라벨 0개. `tag="mask"` 및
 `extra.ignore=1`인 박스는 제외하고 `fbox`(전체범위)만 라벨로 사용.
+
+**WiderPerson 변환 결과** (2026-07-15): `model/data/processed/widerperson/`에 이미지
+9,000장 + 라벨 9,000개, 빈 라벨 0개. 변환 후 person 박스 260,183개 (클래스 1/2/3 원본
+합계 260,186과 3개 차이 — 이미지 경계로 클리핑 후 면적이 0이 된 퇴화 박스가 걸러진 것으로,
+무시 가능한 수준). 클래스 4(ignore regions)/5(crowd) 3,649+9,640=13,289개는 제외됨.
+
+**WiderPerson class 3(부분가림) 서브셋**: class 3 박스를 하나 이상 포함하는 이미지
+**6,861장 (76.2%)** — `model/data/processed/widerperson/partial_visible_subset.txt`에
+이미지 ID 목록 저장. WiderPerson은 "partially-visible person" 전용 클래스를 제공한다는
+PRD 7.1절 설명대로, 부분가림 샘플이 상당한 비중을 차지함을 확인.
 
 ### 2.4 Occlusion 비율 서브셋 분석 (CrowdHuman)
 
@@ -275,10 +302,11 @@ model/data/
   2026-07-14)
 - ~~CrowdHuman 실제 다운로드 및 배치~~ → **완료** (19,370장 확보·검증·YOLO 변환 및 occlusion
   서브셋 분석까지 완료, 2026-07-15)
-- WiderPerson 실제 다운로드 및 배치 (브라우저 수동 다운로드 필요, 자동화 불가)
+- ~~WiderPerson 실제 다운로드 및 배치~~ → **완료** (9,000장 확보·검증·YOLO 변환 및 class 3
+  부분가림 서브셋 분석까지 완료, 2026-07-15)
 - OCHuman 신청 폼 제출 및 bbox 성격(amodal 여부) 원 논문 재확인
 - 자체 촬영 일정 협의 (팀원 C, D) — SHOOTING_GUIDE.md 기준으로 진행
 - 합성 텍스처를 실제 촬영 잔해 사진으로 교체하는 실험 (자체 촬영 진행 후)
-- COCO/CrowdHuman에 `occlusion_augment.py` 적용해 합성 데이터 생성 (다음 단계 후보)
-- WiderPerson 확보 후 `convert_to_yolo.py` → `occlusion_augment.py` → `split_dataset.py`
-  전체 파이프라인을 수만 장 규모로 실행, PRD 8장 스모크테스트 결과 재검증
+- COCO/CrowdHuman/WiderPerson에 `occlusion_augment.py` 적용해 합성 데이터 생성 (다음 단계 후보)
+- `split_dataset.py` 실행해 확보된 3개 소스(COCO+CrowdHuman+WiderPerson, 총 95,178장) 기준
+  train/val/test 분할 및 PRD 8장 스모크테스트 결과 본 학습 규모로 재검증
