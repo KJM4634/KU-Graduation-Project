@@ -88,7 +88,8 @@ def main():
 
     for split_name, split_items in (("train", all_train), ("val", all_val), ("test", all_test)):
         out_path = out_dir / f"{split_name}.txt"
-        out_path.write_text("\n".join(str(p) for p in split_items) + ("\n" if split_items else ""))
+        out_path.write_text("\n".join(str(p) for p in split_items) + ("\n" if split_items else ""),
+                             encoding="utf-8")
 
     print(f"\n최종: train {len(all_train)} / val {len(all_val)} / test {len(all_test)}")
     print(f"분할 목록 저장 위치: {out_dir}")
