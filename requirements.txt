@@ -15,6 +15,10 @@ pillow==12.2.0
 matplotlib==3.11.0
 pyyaml==6.0.3
 
+# --- ONNX 변환/추론 (Jetson TensorRT 변환 전 중간 단계, PRD 6장) ---
+onnx==1.22.0
+onnxruntime-gpu==1.27.0
+
 # --- 엣지 SW: GPS (edge/gps), PC에서 개발/테스트 가능 ---
 pyserial==3.5
 pynmea2==1.19.0
