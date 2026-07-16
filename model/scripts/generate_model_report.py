@@ -18,6 +18,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+plt.rcParams["font.family"] = "Malgun Gothic"  # 한글 라벨 깨짐 방지 (Windows 기본 한글 폰트)
+plt.rcParams["axes.unicode_minus"] = False
+
 from evaluate_model import evaluate
 
 SUBSETS = [
