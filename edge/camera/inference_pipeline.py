@@ -10,9 +10,15 @@ import argparse
 import time
 from dataclasses import dataclass, field
 
+import cv2
 from ultralytics import YOLO
 
-from capture import DIRECTIONS, build_rig_from_videos, build_rig_from_webcam
+from capture import (
+    DIRECTIONS,
+    build_rig_from_videos,
+    build_rig_from_webcam,
+    build_rig_from_webcam_indices,
+)
 
 
 @dataclass
@@ -73,18 +79,34 @@ def summarize(results: dict) -> str:
     return "\n".join(lines)
 
 
+def draw_detections(frame, result: FrameResult):
+    """디버그/데모용: 탐지된 박스와 confidence를 프레임에 그려서 반환 (원본은 변경 안 함)."""
+    vis = frame.copy()
+    for det in result.detections:
+        x1, y1, x2, y2 = (int(v) for v in det.xyxy)
+        cv2.rectangle(vis, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(vis, f"{det.confidence:.2f}", (x1, max(0, y1 - 8)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    return vis
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", choices=["videos", "webcam"], default="videos")
+    parser.add_argument("--source", choices=["videos", "webcam", "cameras"], default="videos")
     parser.add_argument("--video-front", default=None)
     parser.add_argument("--video-back", default=None)
     parser.add_argument("--video-left", default=None)
     parser.add_argument("--video-right", default=None)
     parser.add_argument("--webcam-index", type=int, default=0)
+    parser.add_argument("--cam-front", type=int, default=None, help="실제 카메라 4대 연결 시 전방 index")
+    parser.add_argument("--cam-back", type=int, default=None, help="실제 카메라 4대 연결 시 후방 index")
+    parser.add_argument("--cam-left", type=int, default=None, help="실제 카메라 4대 연결 시 좌측 index")
+    parser.add_argument("--cam-right", type=int, default=None, help="실제 카메라 4대 연결 시 우측 index")
     parser.add_argument("--model", default="model/weights/dsar_n_full.pt")
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--iterations", type=int, default=10, help="테스트용 반복 횟수 (0=무한)")
     parser.add_argument("--interval", type=float, default=0.0, help="반복 간 대기(초)")
+    parser.add_argument("--show", action="store_true", help="채널별 창을 띄워 박스를 실시간으로 표시 (q키로 종료)")
     args = parser.parse_args()
 
     if args.source == "videos":
@@ -96,6 +118,15 @@ def main():
         if missing:
             raise SystemExit(f"--source videos 사용 시 --video-{{{','.join(missing)}}} 를 지정해야 함")
         rig = build_rig_from_videos(video_paths)
+    elif args.source == "cameras":
+        cam_indices = {
+            "front": args.cam_front, "back": args.cam_back,
+            "left": args.cam_left, "right": args.cam_right,
+        }
+        missing = [d for d, i in cam_indices.items() if i is None]
+        if missing:
+            raise SystemExit(f"--source cameras 사용 시 --cam-{{{','.join(missing)}}} 를 지정해야 함")
+        rig = build_rig_from_webcam_indices(cam_indices)
     else:
         rig = build_rig_from_webcam(args.webcam_index)
 
@@ -108,11 +139,22 @@ def main():
             results = pipeline.process_all(frames)
             print(f"--- frame {i} ---")
             print(summarize(results))
+            if args.show:
+                for direction in DIRECTIONS:
+                    frame = frames.get(direction)
+                    result = results.get(direction)
+                    if frame is None or result is None or not result.frame_ok:
+                        continue
+                    cv2.imshow(direction, draw_detections(frame, result))
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
             i += 1
             if args.interval > 0:
                 time.sleep(args.interval)
     finally:
         rig.release_all()
+        if args.show:
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

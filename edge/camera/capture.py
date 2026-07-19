@@ -99,3 +99,10 @@ def build_rig_from_webcam(index=0) -> FourChannelRig:
     shared = WebcamCameraSource(index)
     sources = {d: shared for d in DIRECTIONS}
     return FourChannelRig(sources)
+
+
+def build_rig_from_webcam_indices(indices: dict) -> FourChannelRig:
+    """실제 카메라 4대를 방향별로 다른 index에 연결 (Jetson 실배포용).
+    indices: {'front': 0, 'back': 1, 'left': 2, 'right': 3} 형태."""
+    sources = {d: WebcamCameraSource(i) for d, i in indices.items()}
+    return FourChannelRig(sources)
