@@ -37,6 +37,11 @@ model/data/splits/**
 !model/data/own_capture/**/.gitkeep
 !model/data/splits/**/.gitkeep
 
+# Team handoff documents (hwp/hwpx) - 팀원들이 주고받는 한글 문서에 API 키 등
+# 민감 정보가 평문으로 섞여 오는 경우가 있어 저장소에는 절대 포함하지 않음
+*.hwp
+*.hwpx
+
 # Node (dashboard)
 node_modules/
 dist/

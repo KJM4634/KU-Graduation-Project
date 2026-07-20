@@ -26,5 +26,9 @@ pynmea2==1.19.0
 # --- 엣지 SW: LCD 알림 UI (edge/notify), PC에서 개발/테스트 가능 ---
 PyQt6==6.11.0
 
+# --- 엣지 SW: 서버 연동 (edge/comm), .env로 장비 키 등 비밀값 로드 ---
+python-dotenv==1.0.1
+requests==2.32.3
+
 # --- Jetson 전용 (Windows PC에는 설치 불가, 참고용 주석) ---
 # Jetson.GPIO          # 부저(GPIO) 제어, Jetson Orin Nano 실기에서만 설치
